@@ -1,5 +1,4 @@
 
-set(SOURCES main.cpp cpu.cpp pipeline.cpp)
-add_executable(simulator ${SOURCES})
+set(SOURCES memory.cpp)
 target_include_directories(simulator PUBLIC ${PROJECT_BINARY_DIR} 
                                            ${PROJECT_SOURCE_DIR}/include)

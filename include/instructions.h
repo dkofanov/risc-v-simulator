@@ -1,7 +1,6 @@
-
-#include <cstdint>
-#include "cpu.h"
+#pragma once
 
 namespace sim {
+    
 
 } // namespace sim
