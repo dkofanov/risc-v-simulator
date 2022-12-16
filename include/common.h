@@ -6,6 +6,7 @@
 namespace sim {
 
 class State {
+    std::string elfFileName;
     sim::CPU cpu;
     sim::Memory memory;
     void runSimulation();

@@ -17,6 +17,7 @@ class CPU {
     std::array<Register, regNum> regs;
 public:
     CPU() = default;
+    void runPipeline();
 };
 
 } // namespace sim
