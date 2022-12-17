@@ -1,10 +1,14 @@
 
+#include "cpu.h"
 #include "common.h"
 
 namespace sim {
     void State::runSimulation() {
-        memory.loadELF(elfFileName);
         cpu.runPipeline();
     };
+
+    State::State(std::string& elfFileName) {
+        memory.loadELF(elfFileName);
+    }
 
 } // namespace sim

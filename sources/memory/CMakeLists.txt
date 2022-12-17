@@ -1,4 +1,5 @@
 
-set(SOURCES memory.cpp)
-target_include_directories(simulator PUBLIC ${PROJECT_BINARY_DIR} 
+set(SOURCES sim_memory.cpp)
+add_library(memory SHARED ${SOURCES})
+target_include_directories(memory PUBLIC ${PROJECT_BINARY_DIR} 
                                            ${PROJECT_SOURCE_DIR}/include)
