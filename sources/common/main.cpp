@@ -13,8 +13,11 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    std::string elfFileName = std::string(argv[0]);
-    sim::State state(elfFileName);
+    std::string elfFileName = std::string(argv[1]);
+    sim::State state;
+    state.loadELF(elfFileName);
+
+    state.getMemory().dump();
 
     return 0;
 }

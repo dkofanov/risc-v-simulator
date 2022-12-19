@@ -2,6 +2,19 @@
 # RISC-V simulator written in C++
 
 # Prerequisites
+## Building googletest
+To succesfully run test, build googletest submodule.
+```shell
+cd third-party/googletest/
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+```
+
+
+## GPG key setup
 You can skip following step if you already have gpg key on your machine.
 
 Create gpg key locally (follow the CLI instructions)
@@ -21,7 +34,14 @@ Enable commits autosign
 git config commit.gpgsign true
 ```
 
-# Build from sources
+# Cloning repo
+Project includes submodules, so you need to clone them as well.
+```shell
+git clone --recursive git@github.com:K3S-prod/risc-v-simulator.git
+cd risc-v-simulator
+git submodule update --init --recursive
+```
+# Build
 ```shell
 mkdir build && cd build
 cmake ..
