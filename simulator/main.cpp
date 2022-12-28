@@ -4,7 +4,6 @@
 
 #include "simulator.h"
 
-
 int main(int argc, char** argv) {
 
     const std::string Usage = "Usage: ./simulator <elf_filename>";
@@ -14,10 +13,9 @@ int main(int argc, char** argv) {
     }
 
     std::string elfFileName = std::string(argv[1]);
-    sim::Simulator state;
-    state.loadELF(elfFileName);
+    sim::Simulator state(elfFileName);
 
-    state.getMemory().dump();
+    //state.getMemory().dump();
 
     return 0;
 }
