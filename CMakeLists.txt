@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -11,7 +11,7 @@ set(RVSIM_BINARY_DIR ${CMAKE_BINARY_DIR})
 include_directories(${RVSIM_BINARY_DIR})
 include_directories(${CMAKE_SOURCE_DIR})
 # Header-only libs:
-include_directories(${CMAKE_SOURCE_DIR}/third_party/ELFIO)
+include_directories(${CMAKE_SOURCE_DIR}/third-party/ELFIO)
 
 project(risc_v_simulator)
 

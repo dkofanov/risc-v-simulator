@@ -1,6 +1,6 @@
 #pragma once
 
-#include <third_party/ELFIO/elfio/elfio.hpp>
+#include "third-party/ELFIO/elfio/elfio.hpp"
 
 #include <cstdint>
 #include <string>

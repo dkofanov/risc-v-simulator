@@ -13,8 +13,8 @@ public:
     Simulator(std::string& elfFileName) : loader_(elfFileName), memory_(loader_) {}
     void runSimulation()
     {
-        const auto *code = static_cast<const uint8_t *>(static_cast<const void *>(memory_.getRawMemory()));
-        interp_.Invoke(code, memory_.getEntry());
+        //const auto *code = static_cast<const uint8_t *>(static_cast<const void *>(memory_.getRawMemory()));
+        //interp_.Invoke(code, memory_.getEntry());
     }
 
 private:
