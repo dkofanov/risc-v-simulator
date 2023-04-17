@@ -15,4 +15,5 @@ include_directories(${CMAKE_SOURCE_DIR}/third-party/ELFIO)
 project(risc_v_simulator)
 
 add_subdirectory(simulator)
+add_subdirectory(uarchsim)
 add_subdirectory(tests)
