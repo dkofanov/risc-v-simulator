@@ -70,13 +70,14 @@ struct Executable {
         0xfe042623,  // 10160:  sw      zero,-20(s0)
         0x00b00513,  // 10164:  li      a0,11
         0xf65ff0ef,  // 10168:  jal     ra,100cc <fibbonaci>
-        0xfea42623,  // 1016c:  sw      a0,-20(s0)
-        0x00000793,  // 10170:  li      a5,0
-        0x00078513,  // 10174:  mv      a0,a5
-        0x01c12083,  // 10178:  lw      ra,28(sp)
-        0x01812403,  // 1017c:  lw      s0,24(sp)
-        0x02010113,  // 10180:  addi    sp,sp,32
-        0x00008067   // 10184:  ret
+        0x00100073,  // 1016c:  ebreak
+        0xfea42623,  // 10170:  sw      a0,-20(s0)
+        0x00000793,  // 10174:  li      a5,0
+        0x00078513,  // 10178:  mv      a0,a5
+        0x01c12083,  // 1017c:  lw      ra,28(sp)
+        0x01812403,  // 10180:  lw      s0,24(sp)
+        0x02010113,  // 10184:  addi    sp,sp,32
+        0x00008067   // 10188:  ret
     };
 };
 
@@ -111,8 +112,9 @@ int main(int argc, char **argv, char **env)
     {
         top->_clk ^= 1;
         top->eval();
-        usleep(100000);
+        if (top->finished_) break;
     }
+    std::cout << "Program finished at " << std::hex << top->PC_ << std::dec << "; $? = " << top->GPR_[10] << std::endl;
     delete top;
     return 0;
 }

@@ -11,6 +11,13 @@ module Fetcher
     /* main */
     output reg[31:0] pc_,
     output reg[31:0] inst_,
+
+    input wire _sig_bcond,
+    input wire _bcond_taken,
+    input wire _sig_advance_gpr,
+    input wire[31:0] _gpr,
+    input wire _sig_advance_by_imm,
+    input wire[31:0] _imm,
   
     input wire _en_trace,
 
@@ -21,15 +28,24 @@ MemUnit#(.MEM_SLOTS_COUNT(`DEF_MAX_INSTS)) inst_mem(._clk(_clk),
                                                     ._reset(_reset),
                                                     ._init_data(_init_data),
                                                     ._we(0),
-                                                    ._data(0),
                                                     ._vptr(_reset ? _init_pc : pc_),
-                                                    .value_(inst_),
+                                                    ._sw_data(0),
+                                                    .lw_data_(inst_),
                                                     ._en_trace(_en_trace));
 
+reg[31:0] base;
+reg[31:0] offs;
+always@(*) begin
+    base = _sig_advance_gpr? _gpr : pc_;
+    if (_sig_bcond) begin
+        offs = _bcond_taken ? _imm : 4;
+    end else begin 
+        offs = _sig_advance_by_imm? _imm : 4;
+    end
+end
+
 always @(posedge _clk) begin
-    `LOG(FETCHER, ("New pc: %h (_reset == %d)", _reset ? _init_pc : pc_ + 4, _reset));
-    pc_ <= _reset ? _init_pc : pc_ + 4;
-    `LOG(FETCHER, ("Fetched: %h", inst_));
+    pc_ <= _reset ? _init_pc : base + offs;
 end
 
 endmodule
