@@ -2,7 +2,6 @@
 
 module BackWriter
 (
-    input wire _reset,
     input wire _we,
     input wire[4:0] _rd,
 

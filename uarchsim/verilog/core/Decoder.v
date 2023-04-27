@@ -19,23 +19,23 @@
 module Decoder
 (
     input[31:0] _inst,
+
     output reg[4:0] rd_,
     output reg[4:0] rs1_,
     output reg[4:0] rs2_,
-    output reg sig_mem_we_,
-    output reg sig_wb_we_,
+    output reg[31:0] imm_,
+
     output reg[1:0] sig_wb_src_,
-    output reg sig_alu_src2_,
-    output wire sig_fetch_advance_gpr_,
-    output wire sig_fetch_advance_by_imm_,
+    output wire sig_fetch_base_gpr_,
+    output wire sig_fetch_is_branch_,
     output wire sig_fetch_bcond_,
     output wire sig_ebreak_,
 
-
+    output reg sig_alu_src2_,
     output reg[2:0] sig_alu_op_,
-    output reg[31:0] imm_,
 
-    input _clk
+    output reg sig_mem_we_,
+    output reg sig_wb_we_
 );
 
 `define SET_R_SIGNATURE() \
@@ -67,6 +67,7 @@ module Decoder
     imm_[10:5] = _inst[30:25]; \
     imm_[11] = _inst[7]; \
     imm_[31:12] = {20{_inst[31]}}; \
+    sig_fetch_is_branch_ = 1; \
     sig_fetch_bcond_ = 1; \
     sig_alu_src2_ = `DECODER_ALU_SRC2_REG; \
     sig_alu_op_ = `DECODER_ALU_OP_BNE;
@@ -88,7 +89,7 @@ module Decoder
     imm_[31:20] = {12{_inst[31]}}; \
     sig_wb_we_ = 1; \
     sig_wb_src_ = `DECODER_WB_SRC_PCNEXT; \
-    sig_fetch_advance_by_imm_ = 1;
+    sig_fetch_is_branch_ = 1;
 
 `define SET_A_SIGNATURE() 
 
@@ -106,9 +107,10 @@ always@(*) begin
     sig_mem_we_ = 0;
     sig_wb_we_ = 0;
     sig_wb_src_ = `DECODER_WB_SRC_ALU;
-    sig_fetch_advance_gpr_ = 0;
-    sig_fetch_advance_by_imm_ = 0;
+    sig_fetch_base_gpr_ = 0;
+    sig_fetch_is_branch_ = 0;
     sig_fetch_bcond_ = 0;
+    sig_ebreak_ = 0;
     sig_alu_op_ = `DECODER_ALU_OP_ADD;
     sig_alu_src2_ = `DECODER_ALU_SRC2_REG;
 
@@ -124,8 +126,8 @@ always@(*) begin
     
     `JALR: begin
         sig_wb_src_ = `DECODER_WB_SRC_PCNEXT;
-        sig_fetch_advance_by_imm_ = 1;
-        sig_fetch_advance_gpr_ = 1;
+        sig_fetch_is_branch_ = 1;
+        sig_fetch_base_gpr_ = 1;
     end
 
     `BEQ: sig_alu_op_ = `DECODER_ALU_OP_BEQ;

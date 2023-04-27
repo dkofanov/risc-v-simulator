@@ -12,3 +12,9 @@ endfunction
 
 `define LOG(COMP, MSG) \
    if (_en_trace) begin $display("[%s] %s", `"COMP`", $sformatf MSG ); end
+
+`define LG(STAGE, MSG) \
+   $display("[%s][v%d] %s", `"STAGE`", STAGE.valid_, $sformatf MSG )
+
+`define L(STAGE, MSG) \
+   $display("[%s][v ]  %s", `"STAGE`", $sformatf MSG )

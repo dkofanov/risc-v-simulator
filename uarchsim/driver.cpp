@@ -108,7 +108,7 @@ int main(int argc, char **argv, char **env)
     LoadProgram(top);
     usleep(1000000);
 
-    while (!Verilated::gotFinish())
+    for (size_t i = 0; i < 5000; i ++)
     {
         top->_clk ^= 1;
         top->eval();
