@@ -102,19 +102,24 @@ int main(int argc, char **argv, char **env)
 {
     Verilated::commandArgs(argc, argv);
     auto *top = new Vtop;
-    top->_en_trace = 1;
-    top->_en_trace_fetch = 1;
+    top->_en_trace_reg = 1;
+    top->_en_trace_mem = 0;
+    top->_en_trace_pipeline = 0;
 
     LoadProgram(top);
-    usleep(1000000);
-
-    for (size_t i = 0; i < 5000; i ++)
+    size_t i = 0;
+    for (i = 0; i < 50000; i++)
     {
         top->_clk ^= 1;
         top->eval();
-        if (top->finished_) break;
+        if (top->finished_) {
+            std::cout << "Program finished at " << std::hex << top->PC_ << std::dec << "; $? = " << top->GPR_[10] << std::endl;
+            break;
+        }
     }
-    std::cout << "Program finished at " << std::hex << top->PC_ << std::dec << "; $? = " << top->GPR_[10] << std::endl;
+    if (i == 50000) {
+        std::cout << "Program interrupted at " << std::hex << top->PC_ << std::dec << "; $? = " << top->GPR_[10] << std::endl;
+    }
     delete top;
     return 0;
 }
@@ -126,7 +131,6 @@ void LoadProgram(Vtop *top)
     top->_init_pc = EXEC.start_pc_;
     for (size_t i = 0; i < EXEC.insts_.size(); i++) {
         top->_init_inst_buf[i] = EXEC.insts_[i];
-        printf("set %x<- %x\n",  top->_init_inst_buf[i], EXEC.insts_[i]);
     }
     top->eval();
 
@@ -134,9 +138,10 @@ void LoadProgram(Vtop *top)
     top->eval();
 
     top->_clk ^= 1;
-    top->_reset = 0;
     top->eval();
 
     top->_clk ^= 1;
     top->eval();
+    top->_reset = 0;
+
 }

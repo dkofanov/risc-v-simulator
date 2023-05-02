@@ -29,6 +29,7 @@ public:
     }
     void SetReg(uint8_t id, Register v)
     {
+        printf("[W] x%02d = %08x\n", id, v);
         if (id != 0) {
             state_.x_regs[id - 1U] = v;
         }

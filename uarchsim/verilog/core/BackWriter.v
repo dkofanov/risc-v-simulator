@@ -13,6 +13,7 @@ module BackWriter
     output reg[31:0] gpr_[31:1],
 
     input wire _en_trace,
+    input wire _reset,
     input wire _clk
 );
 
@@ -27,16 +28,16 @@ always@(_sig_src) begin
 end
 
 always@(posedge _clk) begin
-    if (_we) if (_rd != 5'0) begin
-        gpr_[_rd] <= res;
-        case(_sig_src)
-        `DECODER_WB_SRC_ALU: `LOG(W, ("Store alu to reg: x%02d = %h ", _rd, res))
-        `DECODER_WB_SRC_MEM: `LOG(W, ("Store mem to reg: x%02d = %h ", _rd, res))
-        `DECODER_WB_SRC_PCNEXT: `LOG(W, ("Store pc+4 to reg: x%02d = %h ", _rd, res))
-        endcase
-    end else begin
-        `LOG(W, ("nop"))
+    if (_reset) begin
+        // set sp:
+        gpr_[2] <= 32'hC0000000;
+    end else if (_we) begin
+        if (_rd != 5'0) begin
+            gpr_[_rd] <= res;
+        end
+        `LOG(W, ("x%02d = %h ", _rd, res))
     end
+
 
 end
 

@@ -12,8 +12,9 @@ module Core
     input wire[31:0] _init_pc,
     
     /* observe */
-    input wire _en_trace,
-    input wire _en_trace_fetch,
+    input wire _en_trace_reg,
+    input wire _en_trace_mem,
+    input wire _en_trace_pipeline,
     output wire sig_ebreak_,
     output wire[31:0] PC_,
     output wire[31:0] GPR_[31:0],
@@ -25,60 +26,40 @@ module Core
 
     /* Bypasses decl: */
     // src
-    wire[31:0] fetch_bypass_exec;
-    wire[31:0] fetch_bypass_mem;
-    wire[31:0] exec_bypass_exec;
-    wire[31:0] exec_bypass_mem;
+    wire[31:0] bypass_exec;
+    wire[31:0] bypass_mem;
     // dst
-    wire[31:0] fetcher_gpr;
     wire[31:0] executor_rs1;
     wire[31:0] executor_rs2;
-    wire[31:0] memory_sw_data;
-
-    wire sig_jalr_after_lw;
-    wire sig_alu_after_lw;
+    wire[31:0] memstore_rs2;
     
-    wire sig_fetcher_base_gpr;
-    wire sig_fetcher_is_branch;
-    wire sig_fetcher_cond_branch;
-    wire sig_fetcher_branch_taken;
-    wire sig_decoder_blocked;
-    wire[31:0] fetcher_imm;
+    wire[31:0] deopt_target;
 
-    Fetcher fetcher(
-        ._sig_decoder_base_gpr(sig_fetcher_base_gpr),
-        ._sig_decoder_is_branch(sig_fetcher_is_branch),
-        ._sig_decoder_bcond(sig_fetcher_cond_branch),
-        ._sig_executor_bcond_taken(sig_fetcher_branch_taken),
-        ._gpr(fetcher_gpr),
-        ._imm(fetcher_imm),
-        ._sig_decoder_blocked(sig_decoder_blocked),
+    wire sig_invalid_prediction;
+    wire sig_exec_lw_block;
+
+    Fetcher sf(
+        ._gpr(GPR_[sd.rs1_]),
+
+        ._decoder_wb_we(sd._sig_wb_we && sd._valid),
+        ._executor_wb_we(se._sig_wb_we && se._valid),
+        ._memory_wb_we(sm._sig_wb_we && sm._valid),
+        ._decoder_rd(sd.rd_),
+        ._executor_rd(se.rd_),
+        ._memory_rd(sm.rd_),
+        ._sig_invalid_prediction(sig_invalid_prediction),
+        ._sig_exec_lw_block(sig_exec_lw_block),
+        ._deopt_target(deopt_target),
         ._reset(_reset),
         ._init_data(_init_data),
         ._init_pc(_init_pc),
-        ._en_trace(_en_trace_fetch),
         ._clk(_clk)
     );
-    assign PC_ = fetcher.pc_;
-
-    StageF sf(
-        ._inst(fetcher.inst_),
-        ._pc(fetcher.pc_),
-        
-        ._sig_lw_blocked(sig_jalr_after_lw || sig_alu_after_lw || sig_decoder_blocked),
-        ._valid(!_reset && !fetcher.prediction_is_invalid_),
-        ._clk(_clk)
-    );
+    assign PC_ = sf.pc_;
 
     Decoder decoder(
         ._inst(sf.inst_)
     );
-
-    assign sig_fetcher_base_gpr = decoder.sig_fetch_base_gpr_;
-    assign sig_fetcher_is_branch = decoder.sig_fetch_is_branch_;
-    assign sig_fetcher_cond_branch = decoder.sig_fetch_bcond_;
-    assign fetcher_imm = decoder.imm_;
-    wire sig_jalr_after_lw;
 
     StageD sd(
         ._rd(decoder.rd_),
@@ -91,15 +72,15 @@ module Core
         ._sig_wb_src(decoder.sig_wb_src_),
         ._sig_alu_src2(decoder.sig_alu_src2_),
         ._sig_alu_op(decoder.sig_alu_op_),
-        ._sig_ebreak(decoder.sig_ebreak_),
+        ._is_bcond(sf.is_bcond_),
+        ._is_taken(sf.is_taken_),
+        ._target_branch(sf.target_branch_),
+        ._target_default(sf.target_default_),
         
-        ._sig_is_branch(sig_fetcher_is_branch),
-        ._sig_lw_fetch_blocked(sig_jalr_after_lw),
-        ._sig_lw_alu_blocked(sig_alu_after_lw),
-        ._valid(!_reset && !fetcher.prediction_is_invalid_),
+        ._valid(!_reset && !sig_invalid_prediction && sf.valid_),
+        ._sig_ebreak(decoder.sig_ebreak_),
         ._clk(_clk)
     );
-    assign sig_decoder_blocked = sd.was_blocked_alu_;
 
     Executor executor(
         ._rs1(executor_rs1),
@@ -108,7 +89,8 @@ module Core
         ._sig_src2(sd.sig_alu_src2_),
         ._sig_op(sd.sig_alu_op_)
     );
-    assign sig_fetcher_branch_taken = executor.res_[0]; 
+    assign sig_invalid_prediction = sd.is_bcond_ && (sd.is_taken_ != executor.res_[0]);
+    assign deopt_target = executor.res_[0] ? sd.target_branch_ : sd.target_default_;
 
     StageE se(
         ._rd(sd.rd_),
@@ -120,8 +102,7 @@ module Core
         ._alu_res(executor.res_),
         ._sig_ebreak(sd.sig_ebreak_),
 
-        ._sig_sd_blocked(sd.was_blocked_ != 0),
-        ._valid(sd.valid_ ),
+        ._valid(sd.valid_ && !sig_exec_lw_block),
         ._clk(_clk)
     );
 
@@ -129,8 +110,9 @@ module Core
     (
         ._vptr(se.alu_res_),
         ._we(se.valid_ ? se.sig_mem_we_ : 0),
-        ._sw_data(GPR_[se.rs2_]),
+        ._sw_data(memstore_rs2),
 
+        ._en_trace(_en_trace_mem),
         ._reset(_reset),
         ._init_data(_init_data),
         ._clk(!_clk)
@@ -146,48 +128,37 @@ module Core
         ._lw_data(data_mem.lw_data_),
         ._sig_ebreak(se.sig_ebreak_),
 
-        ._valid(se.valid_ && !sig_alu_after_lw),
+        ._valid(se.valid_),
         ._clk(_clk)
     );
 
     assign sig_ebreak_ = sm.sig_ebreak_;
 
-    /* Bypasses: */
-    // Fetch:
-    assign fetch_bypass_exec = se._alu_res;
-    assign fetch_bypass_mem = (sm._sig_wb_src == `DECODER_WB_SRC_ALU) ? sm._alu_res : sm._lw_data /* jal-after-jalr (`DECODER_WB_SRC_PCNEXT) is not supported */;
-
-    assign sig_jalr_after_lw = decoder.sig_fetch_is_branch_ &&
-                             decoder.sig_fetch_base_gpr_ &&
-                             sig_fetch_bypass_from_exec &&
-                             (se._sig_wb_src == `DECODER_WB_SRC_MEM);
-
-    wire sig_fetch_bypass_from_exec = (sd._rs1 != 0) && (sd._rs1 == se._rd) && (se._sig_wb_we) && (se._valid);
-    wire sig_fetch_bypass_from_mem = (sd._rs1 != 0) && (sd._rs1 == sm._rd) && (sm._sig_wb_we) && (sm._valid);
-
-    assign fetcher_gpr = (sd._rs1 == 5'0) ? 32'0 :
-                            sig_fetch_bypass_from_exec ? fetch_bypass_exec :
-                                sig_fetch_bypass_from_mem ? fetch_bypass_mem : GPR_[sd._rs1];
-
+    /* Bypasses:*/
     // Exec:
-    assign exec_bypass_exec = se.alu_res_;
-    assign exec_bypass_mem = (sm.sig_wb_src_ == `DECODER_WB_SRC_ALU) ? sm.alu_res_ : sm.lw_data_ /* jal-after-jalr (`DECODER_WB_SRC_PCNEXT) is not supported */;
+    assign bypass_exec = (se.sig_wb_src_ == `DECODER_WB_SRC_ALU) ? se.alu_res_ : (se.sig_wb_src_ == `DECODER_WB_SRC_PCNEXT) ? (se.pc_ + 4) : 32'hDEADBEEF; 
+    assign bypass_mem = (sm.sig_wb_src_ == `DECODER_WB_SRC_ALU) ? sm.alu_res_ : (sm.sig_wb_src_ == `DECODER_WB_SRC_MEM) ? sm.lw_data_ : (sm.pc_ + 4); 
 
-    wire sig_exec_rs1_bypass_from_exec = (sd.rs1_ != 0) && (sd.rs1_ == se.rd_) && (se.sig_wb_we_) && (se.valid_);
-    wire sig_exec_rs1_bypass_from_mem = (sd.rs1_ != 0) && (sd.rs1_ == sm.rd_) && (sm.sig_wb_we_) && (sm.valid_);
-    wire sig_exec_rs2_bypass_from_exec = (sd.rs2_ != 0) && (sd.rs2_ == se.rd_) && (sd.sig_alu_src2_ == `DECODER_ALU_SRC2_REG) && (se.sig_wb_we_) && (se.valid_);
-    wire sig_exec_rs2_bypass_from_mem = (sd.rs2_ != 0) && (sd.rs2_ == sm.rd_) && (sd.sig_alu_src2_ == `DECODER_ALU_SRC2_REG) && (sm.sig_wb_we_) && (sm.valid_);
+    wire sig_exec_lw_block_rs1 = (sd.rs1_ != 0) && (sd.rs1_ == se.rd_) && (se.sig_wb_we_) && (se.sig_wb_src_ == `DECODER_WB_SRC_MEM) && (se.valid_);
+    wire sig_exec_lw_block_rs2 = (sd.rs2_ != 0) && (sd.rs2_ == se.rd_) && (sd.sig_alu_src2_ == `DECODER_ALU_SRC2_REG) && (se.sig_wb_src_ == `DECODER_WB_SRC_MEM) && (se.sig_wb_we_) && (se.valid_);
+    wire sig_exec_lw_block = sig_exec_lw_block_rs1 || sig_exec_lw_block_rs2;
+    wire sig_rs1_bypass_from_exec = (sd.rs1_ == se.rd_) && (se.sig_wb_we_) && (se.sig_wb_src_ == `DECODER_WB_SRC_ALU) && (se.valid_);
+    wire sig_rs2_bypass_from_exec = (sd.rs2_ == se.rd_) && (sd.sig_alu_src2_ == `DECODER_ALU_SRC2_REG) && (se.sig_wb_src_ == `DECODER_WB_SRC_ALU) && (se.sig_wb_we_) && (se.valid_);
+    wire sig_rs1_bypass_from_mem = (sd.rs1_ == sm.rd_) && (sm.sig_wb_we_) && (sm.valid_);
+    wire sig_rs2_bypass_from_mem = (sd.rs2_ == sm.rd_) && (sd.sig_alu_src2_ == `DECODER_ALU_SRC2_REG) && (sm.sig_wb_we_) && (sm.valid_);
+    wire sig_store_bypass = (se.rs2_ == sm.rd_) && (se.sig_mem_we_) && (sm.sig_wb_we_) && (sm.valid_);
 
-    assign sig_alu_after_lw = (sig_exec_rs1_bypass_from_exec || sig_exec_rs2_bypass_from_exec) && (se.sig_wb_src_ == `DECODER_WB_SRC_MEM);
     
     assign executor_rs1 = (sd.rs1_ == 5'0) ? 32'0 :
-                            sig_exec_rs1_bypass_from_exec ? exec_bypass_exec :
-                                sig_exec_rs1_bypass_from_mem ? exec_bypass_mem : GPR_[sd.rs1_];
+                            sig_rs1_bypass_from_exec ? bypass_exec :
+                                sig_rs1_bypass_from_mem ? bypass_mem : GPR_[sd.rs1_];
 
     assign executor_rs2 = (sd.rs2_ == 5'0) ? 32'0 :
-                            sig_exec_rs2_bypass_from_exec ? exec_bypass_exec :
-                                sig_exec_rs2_bypass_from_mem ? exec_bypass_mem : GPR_[sd.rs2_];
+                            sig_rs2_bypass_from_exec ? bypass_exec :
+                                sig_rs2_bypass_from_mem ? bypass_mem : GPR_[sd.rs2_];
 
+    assign memstore_rs2 = (se.rs2_ == 5'0) ? 32'0 :
+                            sig_store_bypass ? bypass_mem : GPR_[se.rs2_];
 
     BackWriter back_writer(
         ._we(sm.valid_ ? sm.sig_wb_we_ : 0),
@@ -198,24 +169,45 @@ module Core
         ._res_pc(sm.pc_),
         ._sig_src(sm.sig_wb_src_),
 
+        ._en_trace(_en_trace_reg),
+        ._reset(_reset),
         ._clk(!_clk)
     );
     assign GPR_[31:1] = back_writer.gpr_;
 
     integer i;
-    always @(posedge _clk) begin
-        `LG(sf, ("%h| inst(%h), base_gpr(%d), offset(%h), (eb[%h] = %d, mb[%h] = %d)", sf.pc_, sf.inst_, sig_fetcher_base_gpr, fetcher_imm, fetch_bypass_exec, sig_fetch_bypass_from_exec, fetch_bypass_mem, sig_fetch_bypass_from_mem));
-        `LG(sd, ("%h| branch(%d), f_blocked(%d), alu_blocked(%d), was_blocked(%d)", sd.pc_, sig_fetcher_is_branch, sd._sig_lw_fetch_blocked, sd._sig_lw_alu_blocked, sd.was_blocked_));
-        `LG(se, ("%h| alu_res: %h", se.pc_, se.alu_res_));
-        `LG(sm, ("%h| vptr(%h), alu_data(%h), lw_data(%h)", sm.pc_, data_mem._vptr, sm.alu_res_, sm.lw_data_));
-        //`L(sw, ("%h| rd(x%02d), is_store(%d), src_t(%d), alu(%h), mem(%h), pc(%h)", sm.pc_, sm.rd_, sm.sig_wb_we_, sm.sig_wb_src_, back_writer._res_alu, back_writer._res_mem, back_writer._res_pc));
-        $display("decoder_ebreak(%d)", decoder.sig_ebreak_);
-        $display("sd._ebreak(%d)", sd._sig_ebreak);
-        $display("sd.ebreak_(%d)", sd.sig_ebreak_);
-        $display("se._ebreak(%d)", se._sig_ebreak);
-        $display("se.ebreak_(%d)", se.sig_ebreak_);
-        $display("sm._ebreak(%d)", sm._sig_ebreak);
-        $display("sm.ebreak_(%d)", sm.sig_ebreak_);
+    always @(posedge _clk)
+    begin
+        if (_en_trace_pipeline) begin
+
+        `LG(sf, (""))
+            `LG_SUB(sf, inst_)
+            `LG_SUB(sf, next_pc_)
+            `LG_SUB(sf, target_branch_)
+            `LG_SUB(sf, target_default_)
+            `LG_SUB(sf, is_bcond_)
+            `LG_SUB(sf, is_taken_)
+        `LG(sd, (""))
+            `LG_SUB(sd, rd_)
+            `LG_SUB(sd, rs1_)
+            `LG_SUB(sd, rs2_)
+            `LG_SUB(sd, sig_mem_we_)
+            `LG_SUB(sd, sig_wb_we_)
+        `LG(se, (""))
+            `LG_SUB(se, alu_res_)
+            `LG_SUB(executor, _rs1)
+            `LG_SUB(executor, _rs2)
+            `LG_SUB(executor, _imm)
+        `LG(sm, (""))
+            `LG_SUB(sm, rd_)
+            `LG_SUB(sm, sig_wb_we_)
+            `LG_SUB(sm, sig_wb_src_)
+            `LG_SUB(sm, alu_res_)
+            `LG_SUB(sm, lw_data_)
+            `LG_SUB(sm, pc_)
         $display("");
+
+        end
     end
+
 endmodule

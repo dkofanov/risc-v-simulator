@@ -8,10 +8,7 @@ module Executor
     input _sig_src2,
     input[2:0] _sig_op,
 
-    output reg[31:0] res_,
-
-    input _en_trace,
-    input _clk
+    output reg[31:0] res_
 );
 
 reg[31:0] actual_src2;
@@ -37,6 +34,5 @@ always@(*) begin
     end
     endcase
 end
-
 
 endmodule

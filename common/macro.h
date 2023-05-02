@@ -29,7 +29,7 @@ static constexpr bool ComponentEnabled(LoggerComponent comp)
 #define LOG_DEBUG(component, msg) \
 {                                                               \
     if (ComponentEnabled(LoggerComponent::component))           \
-    std::cout << "[" << #component << "] " << msg << std::endl; \
+    std::cerr << "[" << #component << "] " << msg << std::endl; \
 }
 #else
 #define LOG_DEBUG(component, msg)

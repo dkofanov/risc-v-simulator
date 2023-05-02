@@ -18,7 +18,7 @@ public:
     Simulator(const std::string& elfFileName) : mmu_(elfFileName), interp_(this, &mmu_) {}
     void runSimulation()
     {
-        constexpr uint32_t SP = 0xBFFFFFFF;
+        constexpr uint32_t SP = 0xC0000000;
         constexpr uint32_t STACK_SIZE_PAGES = 1;
         if (!AllocStack(STACK_SIZE_PAGES, SP)) {
             LOG_FATAL(SIMULATOR, "Failed to allocate stack");
